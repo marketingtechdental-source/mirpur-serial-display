@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mirpur Clinic Serial Display</title>
+<style>
+  body {
+    margin: 0;
+    font-family: 'Noto Sans', sans-serif;
+    background: #101010;
+    color: #fff;
+  }
+
+  header {
+    background: #00897b;
+    color: #fff;
+    padding: 20px;
+    text-align: center;
+    font-size: 2.2em;
+    font-weight: bold;
+  }
+
+  #clock {
+    position: absolute;
+    top: 15px;
+    right: 30px;
+    font-size: 1.6em;
+    font-weight: 600;
+  }
+
+  table {
+    width: 95%;
+    margin: 20px auto;
+    border-collapse: collapse;
+    text-align: center;
+    table-layout: fixed;
+  }
+
+  thead {
+    background: #004d40;
+    color: #fff;
+  }
+
+  th, td {
+    border: 2px solid #00bfa5;
+    padding: 5px 8px;
+    font-size: calc(14px + 0.5vw);
+    word-wrap: break-word;
+  }
+
+  tr:nth-child(even) { background: #1f1f1f; }
+  tr:nth-child(odd) { background: #2c2c2c; }
+  tr:hover { background: #00695c; }
+
+  footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: #004d40;
+    text-align: center;
+    padding: 10px;
+    font-size: 1.2em;
+  }
+</style>
+</head>
+<body>
+
+<header>🦷 মিরপুর ডেন্টাল সিরিয়াল তালিকা</header>
+<div id="clock"></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>রোগীর নাম</th>
+      <th>সিরিয়ালের সময়</th>
+      <th>চিকিৎসা</th>
+      <th>বর্তমান অবস্থা</th>
+    </tr>
+  </thead>
+  <tbody id="sheetBody">
+    <tr><td colspan="4">লোড হচ্ছে...</td></tr>
+  </tbody>
+</table>
+
+
+<script>
+// Clock
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('en-US', { hour12: true });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// Google Sheet JSON Web App URL
+const sheetJSON = "https://script.google.com/macros/s/AKfycbwJ1QEzg9fZzp5lA8dUqx44bbutGDdqTWwCJwK590PWLtxQ5KndukIbJx83OUGQfIpg/exec";
+
+// Function to format ISO string to 12-hour AM/PM
+function formatTime(isoString) {
+  if(!isoString) return '';
+  const date = new Date(isoString);
+  let hours = date.getHours();
+  let minutes = date.getMinutes();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  minutes = minutes < 10 ? '0'+minutes : minutes;
+  return `${hours}:${minutes} ${ampm}`;
+}
+
+// Load Sheet Data
+async function loadSheet() {
+  try {
+    const res = await fetch(sheetJSON);
+    const data = await res.json();
+    const tbody = document.getElementById('sheetBody');
+    tbody.innerHTML = "";
+
+    // Filter: শুধু non-empty rows
+    const filteredData = data.filter(row => {
+      return row["রোগীর নাম"] || row["সিরিয়ালের সময়"] || row["চিকিৎসা"] || row["বর্তমান অবস্থা"];
+    });
+
+    // Add filtered rows
+    filteredData.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${row["রোগীর নাম"] || ''}</td>
+        <td>${formatTime(row["সিরিয়ালের সময়"])}</td>
+        <td>${row["চিকিৎসা"] || ''}</td>
+        <td>${row["বর্তমান অবস্থা"] || ''}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    if(filteredData.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4">❌ কোনো ডেটা পাওয়া যায়নি</td></tr>`;
+    }
+
+  } catch(err) {
+    document.getElementById('sheetBody').innerHTML = `<tr><td colspan="4">⚠️ শিট লোড ব্যর্থ</td></tr>`;
+    console.error(err);
+  }
+}
+
+// Initial load + auto-refresh every 60 sec
+loadSheet();
+setInterval(loadSheet, 60000);
+</script>
+
+</body>
+</html>
